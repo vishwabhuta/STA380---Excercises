@@ -1,0 +1,302 @@
+---
+title: "Predictive Analytics Exercise 1"
+author: "Vishwa Bhuta"
+date: "August 6, 2016"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+##Probability Practice##
+###Part A###
+
+Since users can either be an RC or a TC(these are mututally exclusive), and they can answer either yes or no(also mututally exclusive), we can say that to the survey results are:  
+$$ P(Yes) = P(Y|RC)*P(RC) + P(Y|TC)*P(TC) $$  
+P(Yes)=0.65  
+P(RC)=0.3  
+P(Y|RC)=0.5  
+P(TC)=0.7  
+Therefore, $P(Y|TC)=\frac{5}{7}$
+
+###Part B###
+
+To me, there were two ways to think about this problem to get to the same solution: first, as a confusion matrix problem, and second as a Bayes' rule problem. Both result in the same answer.
+
+                            Actual
+                      Positive | Negative
+                 -----------------------------
+      Pred Pos   True Pos(TP)  | False Pos(FP)  
+      Pred Neg   False Neg(FN) | True Neg(TN)
+                 -----------------------------
+                 Actual Pos    | Actual Neg
+      
+We are looking for $\frac{TP}{TP+FP}$
+
+$$ Sensitivity = \frac{TP}{(TP + FN)} = 0.993 $$
+$$ Specificity = \frac{TN}{(TN + FP)} = 0.9999 $$
+$$ Actual Positive = TP + FN = 0.000025 $$
+$$ Actual Negative = TN + FP = 1 - 0.000025 = 0.999975 $$
+
+Therefore $TP = (TP + FN)*0.993 = 0.000024825$   
+Therefore $TN = (TN + FP)*0.9999 = 0.999875$  
+Therefore $FP = Actual Negative - TN = 0.999975 - 0.999875 = 0.0001$  
+Therefore $$ \frac{TP}{TP+FP} = \frac{0.000024825}{0.000024825+0.0001} = 0.19888 $$  
+
+Bayes Rule: $$ P(D+|T+)= \frac{P(D+)*P(T+|D+)}{P(T+)} $$  
+Where D+ means you have the disease and T+ means you tested positive. We know that $P(D+)=0.000025$, and that $P(T+|D+)=0.993$. We also know that $P(T+)=(P(T+|D+)*P(D+)) + (P(T+|D-)*P(D-))$ and that $P(D-)=1-0.000025=0.999975$. The only piece we don't know, therefore, is $P(T+|D-)$. 
+
+From conditional probability rules, we can say that $P(T+|D-)=\frac{P(T+ and D-)}{P(D-)}$. The probability of $P(T+ and D-)$ is $P(D-)-P(T- and D-)$, since if you don't have the disease you can either test positive or negative. We do know that $P(T-|D-)=0.9999$, and that $P(T-|D-)=\frac{P(T- and D-)}{P(D-)}$. So if $0.9999=\frac{P(T- and D-)}{0.999975}$, $P(T- and D-)=0.999875$, and $P(T+ and D-)=0.999975-0.999875=0.0001$. Finally, this means that $P(T+|D-)=\frac{0.0001}{0.999975}$
+
+$$ P(D+|T+)= \frac{P(D+)*P(T+|D+)}{P(T+)} $$
+$$ P(D+|T+)= \frac{0.000025*0.993}{(0.993*0.000025)+(0.0001*0.999975)} = 0.19888$$
+
+Either way you get to the solution, if you can only be around 20% certain that someone who has tested positive for this test has the disease, the incentive for people to get tested is low, because they cannot trust the test results. This test could cost people a lot of money if they test positive and are among the 80% that does not have the disease, because they'll have to pay for unnecessary tests adn such. This could lead to many angry people if a universal testing policy implemented. 
+
+##Exploratory Analysis: Green Buildings##
+```{r,echo=FALSE,include=FALSE}
+green = read.csv('greenbuildings.csv')
+attach(green)
+green$cluster=factor(green$cluster)
+green$renovated=factor(green$renovated)
+green$class_a=factor(green$class_a)
+green$class_b=factor(green$class_b)
+green$LEED=factor(green$LEED)
+green$Energystar=factor(green$Energystar)
+green$green_rating=factor(green$green_rating)
+green$net=factor(green$net)
+green$amenities=factor(green$amenities)
+```
+
+To first try and understand the data, I ran a correlations between all the numerical variables and rent to get first impressions on whether there were any linear relationships. Right off the bat, you can see that cluster rent is 76% correlated with rent, suggesting that buildings within a quarter mile of each other are likely to have similar rents, despite green rating. This brought in the potential confounding variable of a neighborhood. The median rent in green buildings could be higher because green buildings on average could be in more expensive neighborhoods. Other factors that seemed to impact rent were electricity and the total number of degree days as well as age. 
+
+```{r,echo=FALSE,include=FALSE}
+x <- green[c(3,4,6,7,8,17:23)]
+y <- green[5]
+cor(x, y)
+```
+
+```{r,echo=FALSE}
+plot(cluster_rent,Rent)
+plot(age,Rent,xlab='age of building')
+```
+
+Next I ran box plots with rent and the categorical variables to find that green_rating, amenities or a specific energy rating don't seem to affect rent significantly. This finding conflicts with the stats guru's finding. I think he goes wrong because by taking the median, he is ignoring some of the variance in the data and is therefore increasing his error. 
+
+
+```{r,echo=FALSE}
+boxplot(Rent~green_rating,xlab="Green Rating", ylab="Rent")
+boxplot(Rent~amenities,xlab="Amenities", ylab="Rent")
+```
+
+Since age and neighborhood seemed related to rent, I wanted to see if there were differences in the ages and the building quality between green and non-gren buildings, and I found that there is. 
+
+```{r,echo=FALSE}
+boxplot(age~green_rating,xlab="Green Rating", ylab="Age")
+xtabs(~ class_b + class_a + green_rating,data=green)
+boxplot(Rent~class_b+class_a, xlab='0.0 are class C, 1.0 are class B and 0.1 are class A buildings')
+```
+
+As you can see, green buildings (with some exceptions) tend to be a lot newer, and we know that newer buildings tend to bring in a slightly higher rent. Furthermore, we see from the contingency tables that most green buildings are class A, some in class B and almost none in class C. Again, there is the question of whether having a higher median rent in green buildings is simply because they are also of better quality. I plot the different classes of buildings against rent, and though the differences do not look too significant, it does seem that the mean rent is higher for Class A buildings. 
+
+All this considered, I do not think that there is yet enough data to confidently say that building a green building will be financially worth it; it might make just as much financial sense to build a building in a nice part of town. I think there needs to be a more telling indicator of neighborhood/part of town in the data, so that we can rule out that as a confounding variable. We could then also look at buildings that are of similar age and quality and then see if there is a difference in rent in green buildings within that.
+
+##Bootstrapping##
+```{r,echo=FALSE,include=FALSE}
+library(mosaic)
+library(fImport)
+library(foreach)
+```
+
+```{r,echo=FALSE,include=FALSE}
+
+YahooPricesToReturns = function(series) {
+	mycols = grep('Adj.Close', colnames(series))
+	closingprice = series[,mycols]
+	N = nrow(closingprice)
+	percentreturn = as.data.frame(closingprice[2:N,]) / as.data.frame(closingprice[1:(N-1),]) - 1
+	mynames = strsplit(colnames(percentreturn), '.', fixed=TRUE)
+	mynames = lapply(mynames, function(x) return(paste0(x[1], ".PctReturn")))
+	colnames(percentreturn) = mynames
+	as.matrix(na.omit(percentreturn))
+}
+
+```
+
+```{r,echo=FALSE,include=FALSE}
+
+
+mystocks = c("SPY","TLT","LQD","EEM","VNQ")
+myprices = yahooSeries(mystocks, from='2008-01-01', to='2016-07-30')
+myreturns = YahooPricesToReturns(myprices)
+
+
+set.seed(1)
+sim1 = foreach(i=1:5000, .combine='rbind') %do% {
+  totalwealth = 100000
+	weights = c(0.2, 0.2, 0.2, 0.2, 0.2)
+	holdings = weights * totalwealth
+	n_days = 20
+	wealthtracker = rep(0, n_days) 
+	for(today in 1:n_days) {
+		return.today = resample(myreturns, 1, orig.ids=FALSE)
+		holdings = holdings + holdings*return.today
+		totalwealth = sum(holdings)
+		wealthtracker[today] = totalwealth
+	}
+	wealthtracker
+}
+
+
+# Calculate 5% value at risk
+quantile(sim1[,n_days], 0.05) - 100000
+```
+
+The data we are using dates back to January 2008; the data from the great recession will hopefully provide robustness in our estimates to any potential market downturns, resulting in conservative predictions.  
+
+```{r,echo=FALSE}
+plot(myreturns[,1], xlab='Time(shown through index, where 1 is 1/1/2008)',ylab='SPY Returns')
+plot(myreturns[,2], xlab='Time(shown through index, where 1 is 1/1/2008)',ylab='TLT Returns')
+plot(myreturns[,3], xlab='Time(shown through index, where 1 is 1/1/2008)',ylab='LQD Returns')
+plot(myreturns[,4], xlab='Time(shown through index, where 1 is 1/1/2008)',ylab='EEM Returns')
+plot(myreturns[,5], xlab='Time(shown through index, where 1 is 1/1/2008)',ylab='VNQ Returns')
+
+```
+
+From the plots, we get a sense of the returns for each ETF classified so that we can assess their risk/reward properties. SPY represents the domestic market overall, which fluctuates with the market cycles of booms and busts. Treasury bonds have some of the most stable returns in the long run because as you can see from the plot, there doesn't seem to be any correlation between time and returns, which fluctuate within the + or - 0.02 range. Corporate bonds appear to be very steady investments with an overage 0 return and few fluctuations. EEM and VNQ both seem to fluctuate the most during the market downturns in 08 and 09, so they seem the most risky. 
+
+```{r,echo=FALSE,include=FALSE}
+
+mystocks2 = c("SPY","TLT","LQD","EEM")
+myprices2 = yahooSeries(mystocks2, from='2008-01-01', to='2016-07-30')
+myreturns2 = YahooPricesToReturns(myprices2)
+
+set.seed(1)
+sim2 = foreach(i=1:5000, .combine='rbind') %do% {
+  totalwealth = 100000
+	weights = c(0.25, 0.35, 0.3, 0.1)
+	holdings = weights * totalwealth
+	n_days = 20
+	wealthtracker = rep(0, n_days)
+	for(today in 1:n_days) {
+		return.today = resample(myreturns2, 1, orig.ids=FALSE)
+		holdings = holdings + holdings*return.today
+		totalwealth = sum(holdings)
+		wealthtracker[today] = totalwealth
+	}
+	wealthtracker
+}
+
+# Calculate 5% value at risk
+quantile(sim2[,n_days], 0.05) - 100000
+```
+
+```{r,echo=FALSE,include=FALSE}
+
+mystocks3 = c("SSO","DTO","TLT")
+myprices3 = yahooSeries(mystocks3, from='2008-01-01', to='2016-07-30')
+myreturns3 = YahooPricesToReturns(myprices3)
+
+set.seed(1)
+sim3 = foreach(i=1:5000, .combine='rbind') %do% {
+  totalwealth = 100000
+	weights = c(0.35, 0.35, 0.3)
+	holdings = weights * totalwealth
+	n_days = 20
+	wealthtracker = rep(0, n_days) 
+	for(today in 1:n_days) {
+		return.today = resample(myreturns3, 1, orig.ids=FALSE)
+		holdings = holdings + holdings*return.today
+		totalwealth = sum(holdings)
+		wealthtracker[today] = totalwealth
+	}
+	wealthtracker
+}
+
+
+# Calculate 5% value at risk
+quantile(sim3[,n_days], 0.05) - 100000
+
+```
+
+The even split portfolio 4 week value at risk at the 5% level is $6,687.
+
+For the "safe" portfolio, I removed the real estate ETF (VNQ). I then assigned the remaining four assets the following weights:  
+
+* SPY - 0.3  
+
+* TLT - 0.4  
+
+* LQD - 0.2  
+
+* EEM - 0.1
+
+These were assigned based on how stable the returns for each type of asset are. 
+
+The 4 week value at risk at the 5% level for the safe portfolio is $3,560. 
+
+For the "aggressive" portfolio, I used 2 leveraged ETFs, with the treasury bonds as a 'stabilizer'. SSO is the ProShares Ultra S&P 500 Fund, which seeks investments that give twice the return of the S&P 500. Therefore the SSO should follow the trends of the S&P 500. The DTO, on the other hand, is the PowerShares DB Crude Oil Double Short ETN, which essentially earns returns when crude oil prices go down (ie. the ETF seeks to short the market). I hoped that having these risky ETFs be making money sometimes in the opposite direction would help keep returns high. 
+
+The 4 week value at risk at the 5% level for the risky portfolio is $7,559.  
+
+```{r, echo=FALSE}
+hist(sim1[,n_days], 25,main='Histogram of Wealth for Even Split Portfolio')
+hist(sim2[,n_days], 25, main='Histogram of Wealth for Safe Portfolio')
+hist(sim3[,n_days], 25, main='Histogram of Wealth for Risky Portfolio')
+```
+
+As you can see from the histograms, the riskiness of the portfolio does impact the amount of wealth that can be expected at the end of the 4 week period. All the portfolios are skewed to be profitable (the even split seems to mostly break even), but the riskier portolio has the most to gain and the most to lose (although gains seem more likely from our simulations).
+
+##Market Segmentation##
+```{r,echo=FALSE,include=FALSE}
+social=read.csv('social_marketing.csv')
+attach(social)
+library(devtools)
+library(ggbiplot)
+```
+
+```{r,echo=FALSE,include=FALSE}
+X=social[,c(2:35)]
+X_center=scale(X,center = TRUE,scale = FALSE)
+pcaModel=prcomp(X_center)
+summary(pcaModel)
+pcaModel$rotation[,1:8]
+```
+
+In approaching this problem, I decided to use Principal Component Analysis(PCA) to attempt market segmentation. Since PCA attempts to find the linear combinations of variables that best capture the variance in the data, I thought it would be a good choice in finding the few new variables(components) that would each contain parts of the original topics users tweet about. The ratio of topics contained within each new component could then be used to say something meaningful about the users.  
+
+I did not include the spam and adult categories in the analysis, as these not only do not contribute to our market segmentation purpose, but are also discouraged by Twitter. I did, however, leave in the 'uncategorized' label. While this label, by definition, doesn't help us understand the user's tweets, it does say something about the complexity of the issue we are dealing with, and I did not want to remove that. The analysis shows that 8 components explain about 78% of the variance in the original data. After 9 components(around 1/4 of our original number of variables), the variance explained by each subsequent component drops to ~1%, so 8 seems like a good stopping point. 
+
+There were some patterns in the components that could help NutritionH2O segment the market:  
+
+* Component 1:  
+    + High positive scores in 'Health & nutrition', 'cooking' and 'personal fitness' suggests that users that have high scores in PC1 really care about their        health.  
+    + Close to 0 on topics such as 'college', 'school', 'parenting' and 'dating', suggesting that users scoring high in PC1 might be in their mid-20s, a time        when they are out of school but not quite starting families. 
+    
+* Component 2:  
+    + High negative scores in 'chatter', 'photo-sharing', 'cooking', but positive scores in 'health & nutrition' and 'personal fitness'. This suggests that          users with negative score in PC2 tend to use twitter mostly to share photos or tweet somewhat randomly (ie. about their days).  
+    + The higher the user's score in PC2, the more they seem to care about fitness and nutrition, similar to PC1, but they care substantially less about             chatter and photo-sharing.  
+    + In the biplot below, you can see that there are many users falling into the quadrant of having high positive scores in PC1 and PC2. These are users that       tweet a lot about nutrition but may not necessarily be tweeting about random things. These users could make good candidates for a marketing campaign for       NutritionH2O.  
+    
+* Component 3:  
+    + High negative scores in travel, religion, politics, news, and college. Users with negative scores in PC3, therefore, could be your politically active          millenials.  
+    
+* Component 4:  
+    + High positive scores in college, cooking, online gaming. Users with high positive scores in PC4 are likely to be college-aged and spend a lot of time          online.  
+    
+* Component 5: Not super interpretable  
+
+* Component 6:  
+    + High negative scores in parenting, religion, family, food and sports fandom. Users with negative scores on PC6 are likely to be parents, perhaps with          more traditional family values.  
+    
+* Component 7 and 8:   
+    + High positive scores in travel, tv/film, music, news and art. Users with positive scores on PC7 or 8 are artistic and media buffs, so perhaps their           attention could be captured with beautiful graphics.  
+    
+
+```{r,echo=FALSE}
+g <- ggbiplot(pcaModel, obs.scale = 1, var.scale = 1, ellipse = TRUE, circle = TRUE,varname.size = 5,alpha = 0.1)
+print(g)
+
+```
+
