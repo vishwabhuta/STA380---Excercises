@@ -1,0 +1,239 @@
+---
+title: "Predictive Analytics Exercise 2"
+author: "Vishwa Bhuta"
+date: "August 12, 2016"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+##Flights at ABIA##
+
+```{r, echo=FALSE, include=FALSE}
+
+library(plotly)
+library(reshape2)
+
+abia = read.csv('ABIA.csv')
+ausDep = abia[abia$Origin=='AUS',] #all departures from AUS
+ausDep$DayOfWeek = factor(ausDep$DayOfWeek)
+levels(ausDep$DayOfWeek) <- list(Mon='1',Tue='2',Wed='3',Thu='4',Fri='5',Sat='6',Sun='7')
+ausDep = ausDep[,c(4,16,18)]
+ausDep[is.na(ausDep$DepDelay),]= 0
+ausDep_cast = dcast(ausDep,Dest~DayOfWeek,fun.aggregate = mean,value.var = 'DepDelay')
+ausDep_melt= melt(ausDep_cast,id.vars='Dest',measure.vars=c('Mon','Tue','Wed','Thu','Fri','Sat','Sun'),variable.name='DayOfWeek',value.name='AverageDelay',na.rm = TRUE)
+
+ausArr = abia[abia$Dest=='AUS',] #all arrivals from AUS
+ausArr$DayOfWeek = factor(ausArr$DayOfWeek)
+levels(ausArr$DayOfWeek) <- list(Mon='1',Tue='2',Wed='3',Thu='4',Fri='5',Sat='6',Sun='7')
+ausArr = ausArr[,c(4,15,17)]
+ausArr[is.na(ausArr$ArrDelay),]= 0
+ausArr_cast = dcast(ausArr,Origin~DayOfWeek,fun.aggregate = mean,value.var = 'ArrDelay')
+ausArr_melt= melt(ausArr_cast,id.vars='Origin',measure.vars=c('Mon','Tue','Wed','Thu','Fri','Sat','Sun'),variable.name='DayOfWeek',value.name='AverageDelay',na.rm = TRUE)
+```
+
+
+```{r,echo=FALSE}
+
+plot_ly(z=ausDep_melt$AverageDelay, x=ausDep_melt$DayOfWeek, y=ausDep_melt$Dest,type = "heatmap",reversescale=TRUE) %>% 
+  layout(title = "Departure Delays for Flights out of AUS by Day",
+           xaxis = list(title = "Day of Week"), 
+           yaxis = list(title = "Flight Destination"), 
+           zaxis = list(title = "Average Departure Delay"),
+         width=1200,
+         height=450)
+
+
+plot_ly(z=ausArr_melt$AverageDelay, x=ausArr_melt$DayOfWeek, y=ausArr_melt$Origin,type = "heatmap",reversescale=TRUE) %>% 
+  layout(title = "Arrival Delays for Flights into AUS by Day",
+           xaxis = list(title = "Day of Week"), 
+           yaxis = list(title = "Flight Origin"), 
+           zaxis = list(title = "Average Arrival Delay"),
+         width=1200,
+         height=450)
+
+```
+
+In the departures plot, you see flights leaving from AUS to the respective destinations, and the average departure delay time for those flights each day. In the arrivals plot, you see flights arriving in AUS from the respective origins, and the average arrival delay time for those flights each day. I wanted to get a sense of (a) whether some days were worse for flying than others, (b) whether flights to/from certain airports showed continuous signs of delays, and (c) what role does AUS play in flight delays (here, I assumed that AUS's role in delays would be on the departure end, and that arrival delay would be due to air time or something that happened at the origin). White blocks suggest missing data in the delay time.
+
+As you can see, AUS does a good job getting flights out on time for the most part. Mondays and Fridays seem to have slightly higher delay times. Flights to EWR, IAD, TPA and maybe OKC seem to have the most consistent delays, although they are small and spread out throughout the week. Because we are looking at average delays, we are prone to outliers skewing the data, which is what I believe has happened for the dark purple block at DSM. 
+
+The scale for the arrivals plot is slightly different, which is why everything looks later. Even so, there are more clear patterns here. Flights coming from RDU, ORD, IAD, EWR, CLT and ATL (ie. large airports) seem to be consistently delayed. Monday and Fridays seem to have more delays on the arrival side as well. The 3 very purple blocks for TYS (Knoxville, TN) are skewed because we only have 3 flight data points and they were all fairly delaed. 
+
+###Author Attribution###
+```{r,echo=FALSE,include=FALSE}
+
+library(tm)
+author_dirs = Sys.glob('STA380-master/data/ReutersC50/C50train/*')
+file_list = NULL
+labels = NULL
+for(author in author_dirs) {
+	author_name = substring(author, first=29)
+	files_to_add = Sys.glob(paste0(author, '/*.txt'))
+	file_list = append(file_list, files_to_add)
+	labels = append(labels, rep(author_name, length(files_to_add)))
+}
+
+readerPlain = function(fname){
+				readPlain(elem=list(content=readLines(fname)), 
+							id=fname, language='en') }
+
+all_docs = lapply(file_list, readerPlain) 
+names(all_docs) = file_list
+names(all_docs) = sub('.txt', '', names(all_docs))
+
+my_corpus = Corpus(VectorSource(all_docs))
+names(my_corpus) = file_list
+
+my_corpus = tm_map(my_corpus, content_transformer(tolower)) # make everything lowercase
+my_corpus = tm_map(my_corpus, content_transformer(removeNumbers)) # remove numbers
+my_corpus = tm_map(my_corpus, content_transformer(removePunctuation)) # remove punctuation
+my_corpus = tm_map(my_corpus, content_transformer(stripWhitespace)) ## remove excess white-space
+my_corpus = tm_map(my_corpus, content_transformer(removeWords), stopwords("SMART"))
+
+DTM = DocumentTermMatrix(my_corpus)
+class(DTM)
+DTM = removeSparseTerms(DTM, 0.95)
+X = as.matrix(DTM)
+
+```
+
+```{r,echo=FALSE,include=FALSE}
+author_dirsTest = Sys.glob('STA380-master/data/ReutersC50/C50test/*')
+#author_dirs = author_dirs[1:2]
+file_listTest = NULL
+labelsTest = NULL
+for(author in author_dirsTest) {
+	author_nameTest = substring(author, first=29)
+	files_to_addTest = Sys.glob(paste0(author, '/*.txt'))
+	file_listTest = append(file_listTest, files_to_addTest)
+	labelsTest = append(labelsTest, rep(author_nameTest, length(files_to_addTest)))
+}
+
+all_docsTest = lapply(file_listTest, readerPlain) 
+names(all_docsTest) = file_listTest
+names(all_docsTest) = sub('.txt', '', names(all_docsTest))
+
+test_corpus = Corpus(VectorSource(all_docsTest))
+names(test_corpus) = file_listTest
+
+test_corpus = tm_map(test_corpus, content_transformer(tolower)) # make everything lowercase
+test_corpus = tm_map(test_corpus, content_transformer(removeNumbers)) # remove numbers
+test_corpus = tm_map(test_corpus, content_transformer(removePunctuation)) # remove punctuation
+test_corpus = tm_map(test_corpus, content_transformer(stripWhitespace)) ## remove excess white-space
+test_corpus = tm_map(test_corpus, content_transformer(removeWords), stopwords("SMART"))
+
+testDTM = DocumentTermMatrix(test_corpus)
+class(testDTM)
+testDTM = removeSparseTerms(testDTM, 0.95)
+Y = as.matrix(testDTM)
+
+```
+
+```{r,echo=FALSE,include=FALSE}
+
+names1=colnames(X)
+names2=colnames(Y)
+missingWords_train = which(!(names2 %in% names1)) 
+names1[missingWords_train]
+missingWords_test = which(!(names1 %in% names2)) 
+names2[missingWords_test]
+for(n in names1[missingWords_train]) {
+    X = cbind(X,0)
+    colnames(X)[ncol(X)] = n
+}
+for(n in names2[missingWords_test]) {
+    Y = cbind(Y,0)
+    colnames(Y)[ncol(Y)] = n
+}
+```
+
+
+```{r,echo=FALSE,include=FALSE}
+
+class.names = unique(labels)
+d.class = NULL
+for(class in class.names){
+  d.class = c(d.class,rep(class,50))
+}
+d.class = as.factor(d.class)
+
+T.class.names = unique(labelsTest)
+T.class = NULL
+for(class in T.class.names){
+  T.class = c(T.class,rep(class,50))
+}
+T.class = as.factor(T.class)
+```
+
+```{r,echo=FALSE,include=FALSE}
+library(class)
+
+knn_res=knn(X,Y,d.class,k=5,prob = TRUE)
+knn_table= table(knn_res,T.class,dnn = list("predicted","actual"))
+accuracy = (sum(diag(knn_table))/2500) * 100
+
+library(e1071)
+
+nb_classifier= naiveBayes(X,d.class,laplace = 1)
+nb_res=predict(nb_classifier, Y ,type = "class", threshold = 0.4)
+nb_table=table(nb_res,T.class)
+nb_accuracy = (sum(diag(nb_table))/2500) * 100
+nb_accuracy
+
+library(nnet)
+#incomplete
+Xclass = X[,c(1:641)]
+Xclass = cbind(Xclass,d.class)
+Xclass = as.data.frame(Xclass)
+nnet_classifier = nnet(d.class~.,Xclass,size=5,MaxNWts=4000)
+#nnet_res=predict(nnet_classifier, Y ,type = "class")
+
+```
+
+I used the knn model and naive bayes to classify the document authors. The KNN model did very poorly out of sample, with an accuracy of only 4%. Naive Bayes did significantly better, with an accuracy of 45%. I tested multiple thresholds (for NB), and multiple k(for knn), which didn't impact the accuracies by more than a few percent points. I also tested converting the DTM to be weighted by TF-IDF rather than just TF and saw that accuracy for NB actually dropped to 23%. This might make sense because there might be similar words (and topics) across multiple authors, which might make the model predict the wrong authors. 
+
+##Groceries Rules##
+```{r,echo=FALSE,include=FALSE}
+library(arules)
+
+groceries = read.transactions('groceries.txt',sep=',')
+basketRules = apriori(groceries,parameter=list(support=.01, confidence=.1, maxlen=5))
+
+```
+
+When compiling the association rules for the grocery baskets, I decided to look at the thresholds individually, because in several instances we see a high lift for sets with low confidence, and we lose those combinations if I set thresholds for lift and confidence together. 
+
+While testing thresholds for confidence, I noticed that 'other vegetables' and 'whole milk' are the most likely Y sets in the rules, even with a confidence of 0.4 (meaning that 40% of itemsets with X items also had Y items). This suggests that whole milk and other vegetables are very popular in the grocery data overall. I worried that since these items were naturally more likely to occur in many different itemsets, association rules would only be due to the popularity of the items rather than actual patterns of purchase of those itemsets together. Therefore. for predicting whole milk and other vegetables, I set a high confidence threshold to .5, to rule out rules that just pointed to the popularity of milk and other vegetables.
+
+``` {r, echo=FALSE,include=FALSE}
+inspect(subset(basketRules, subset=confidence>0.5))
+```
+
+Looking at these rules, we see that whole milk is most likely to be purchased when the itemsets consist of items such as curd, yogurt, other/root vegetables, whipped/sour cream, citrus/tropical fruit, eggs or rolls/buns. Other vegetables are most likely to be purchases when the itemsets consist of citrus/tropical fruits and root vegetables. Dairy products being purchased together, or produce being purchased together comes as no surprise. Grocery stores already use these associations: produce is grouped together, and dairy is grouped together, but dairy products are placed far away from the produce, so that customers have to walk through the entire store to get these products that they are likely to purchase. 
+
+If we reduce the confidence threshold to .25, we can see different Y sets being predicted, although they are still generic items like 'yogurt', 'tropical fruit', 'root vegetables', 'soda', 'rolls/buns'.
+
+```{r, echo=FALSE,include=FALSE}
+inspect(subset(basketRules, subset=confidence>0.3 & confidence<=0.4)) 
+```
+
+Here, we can see some interesting associations emerge. For example, rolls/buns appear in 33% of baskets that contain frankfurters, so perhaps those shoppers are making hot dogs? Whole milk also appears in ~37% of the baskets that contain either hygience articles or napkins. Since milk is already so popular, however, this rule isn't actionable. The rules of conditional probability don't work in reverse (p(milk|napkins) != p(napkins|milk)), we can't say that placing the napkins close to the milk will increase napkin purchases; for that, we'd need to also know how often napkins appear in baskets that contain milk. 
+
+When setting the lift threshold, I wanted to find interesting associations that weren't already being captured by confidence. I chose to set it to 2.5 (a basket with X items is at least 2.5 times more likely to have Y items that a randomly chosen basket).
+
+```{r, echo=FALSE,include=FALSE}
+inspect(subset(basketRules, subset=lift > 2.5)) 
+```
+
+We see a few interesting patterns emerge here: we see that if a basket contains beef, it's 3 times as likely to contain root vegetables and vice versa. The vice versa part is important, because p(root vegetables|beef)=0.33 but p(beef|root vegetables)=0.16, so in this case, confidence itself isn't doing a good job showing the association between these two items, likely because root vegetables are more popular overall (p(root vegetables) is higher than p(beef)). Because the association between these products is strong, grocery stores could send coupons for beef to someone who has a history of buying root vegetables. Similarly, butter and whipped/sour cream are 2.5 times more likely to be purchased when either is in the basket, so even within the dairy section, these products could be placed next to each other (I've seen this in several grocery stores).  
+
+
+
+```{r}
+
+
+```
+
